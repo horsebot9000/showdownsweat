@@ -1,0 +1,8 @@
+{"note":"Fit by research/fit_weather.py on 2014-2026 outdoor games (126 rain, 29 snow); each coefficient shrunk by max(0,1-1/t^2). Units: proe = pass-rate shift; sp/sr = engine efficiency tilt (YPA/3.84, YPC/2.4); fum = fumble-rate multiplier increment; fg = FG make logit shift; tot = points vs closing total. Wind is per 10 mph above 10; cold is full at 25F or below, zero at 32F.",
+ "proe":{"rain":-0.0237,"snow":-0.0208,"wind":-0.0106,"cold":-0.0059},
+ "sp":{"rain":-0.147,"snow":-0.035,"wind":-0.105,"cold":-0.068},
+ "sr":{"rain":-0.020,"snow":0.129,"wind":-0.044,"cold":-0.060},
+ "fum":{"rain":0.086,"snow":0,"wind":0.099,"cold":0},
+ "fg":{"rain":-0.32,"snow":-0.36,"wind":-0.22,"cold":0},
+ "tot":{"rain":-4.2,"snow":0,"wind":-2.24,"cold":-1.53},
+ "raw":{"ypa":{"rain":-0.59,"snow":-0.32,"wind":-0.42,"cold":-0.33},"ypc":{"rain":-0.11,"snow":0.39,"wind":-0.14,"cold":-0.21},"tot":{"rain":[-4.52,1.20],"snow":[0.68,2.48],"wind":[-2.54,0.88],"cold":[-2.51,1.58]}}}

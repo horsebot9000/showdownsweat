@@ -1,0 +1,48 @@
+<meta charset="utf-8">
+<title>Classic Sim Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Saira+Condensed:wght@500;600;700&display=swap">
+<style>/*CSS*/</style>
+<div class="wrap">
+  <header class="top">
+    <div class="brand"><span class="lbl">DraftKings NFL Classic · play-by-play slate simulator</span><div class="matchup" id="matchup"></div><span class="small muted" id="gameinfo"></span></div>
+    <div class="small muted" style="text-align:right">Model: <span id="modelNote"></span><br><span id="srcLabel"></span></div>
+  </header>
+  <section class="controls" aria-label="Setup">
+    <div class="ctl" style="grid-column:span 2;min-width:0"><span class="lbl">DK salary CSV</span>
+      <div class="drop" id="drop" role="button" tabindex="0"><b>Upload or drop DKSalaries.csv</b><span class="small muted">Classic export for a multi-game slate. Games are read from the file.</span><input type="file" id="file" accept=".csv,.zip,text/csv" hidden></div></div>
+    <div class="ctl" style="grid-column:span 2;min-width:0"><span class="lbl">Projected ownership (optional)</span><div class="drop" id="dropOwn" role="button" tabindex="0"><b>Upload ownership CSV</b><span class="small muted">Needs a Name column and an ownership column.</span><input type="file" id="fileOwn" accept=".csv,.zip,text/csv" hidden></div><span id="ownStatus" class="small muted"></span></div>
+    <div class="ctl"><label class="lbl" for="nsims">Simulations</label><input id="nsims" type="number" step="1000" min="500" max="30000" value="10000"></div>
+    <div class="ctl" style="grid-column:1/-1"><div class="row"><button class="primary" id="runBtn">Run simulation</button><div class="prog" id="prog"><div></div></div><span id="stale" class="chip ex" hidden>Inputs changed, run again</span></div><span class="small muted" id="status">Loading…</span></div>
+  </section>
+  <nav class="tabs" id="tabs" role="tablist">
+    <button data-tab="slate" role="tab">Slate inputs</button>
+    <button data-tab="games" role="tab">Games</button>
+    <button data-tab="proj" role="tab">Projections</button>
+    <button data-tab="props" role="tab">Props</button>
+    <button data-tab="cmp" role="tab">Compare</button>
+    <button data-tab="stacks" role="tab">Stacks</button>
+    <button data-tab="lineups" role="tab">Player optimals</button>
+    <button data-tab="port" role="tab">Portfolio builder</button>
+    <button data-tab="cash" role="tab">Cash games</button>
+    <button data-tab="live" role="tab">Live</button>
+  </nav>
+  <section class="pane" id="pane-slate"></section>
+  <section class="pane" id="pane-games" hidden></section>
+  <section class="pane" id="pane-proj" hidden></section>
+  <section class="pane" id="pane-props" hidden></section>
+  <section class="pane" id="pane-cmp" hidden></section>
+  <section class="pane" id="pane-stacks" hidden></section>
+  <section class="pane" id="pane-lineups" hidden></section>
+  <section class="pane" id="pane-port" hidden></section>
+  <section class="pane" id="pane-cash" hidden></section>
+  <section class="pane" id="pane-live" hidden></section>
+</div>
+<script type="application/json" id="model-data">/*MODEL*/</script>
+<script type="application/json" id="logs-data">/*LOGS*/</script>
+<script type="text/plain" id="engine-src">/*ENGINE*/</script>
+<script type="text/plain" id="slate-src">/*SLATE*/</script>
+<script type="text/plain" id="worker-src">/*WORKER*/</script>
+<script type="text/plain" id="sample-csv">/*SAMPLE*/</script>
+<div id="pcard" class="pcard" hidden></div>
+<script>/*APP*/</script>
