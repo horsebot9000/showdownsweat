@@ -6,8 +6,12 @@
    standings download per contest covers the whole game. */
 const SWEAT = true;
 const SW = { info: new Map(), files: new Map(), dg: null, msg: '', busy: false };
-function swIds(text) { const out = new Set(); const re = /(?:contest(?:s)?\/(?:gamecenter\/|draft\/)?|contestId=|standings-)(\d{6,12})/gi; let m;
-  while ((m = re.exec(text || ''))) out.add(m[1]); (String(text || '').match(/\b\d{9,11}\b/g) || []).forEach((x) => out.add(x)); return Array.from(out); }
+// contest numbers from links or bare numbers; other numbers in a link (the ?uc= entry key) are ignored
+function swIds(text) { const out = new Set();
+  for (const tok of String(text || '').split(/[\s,]+/)) { if (!tok) continue;
+    const m = /(?:contests?\/(?:gamecenter\/|draft\/)?|contestId=|standings-)(\d{6,12})/i.exec(tok); if (m) { out.add(m[1]); continue; }
+    if (/^\d{6,12}$/.test(tok)) out.add(tok); }
+  return Array.from(out); }
 // DraftKings' contest API blocks other sites from reading it (and blocks Google's servers), but it answers JSONP, which a page
 // can load as a script straight from the visitor's own browser: no relay, no server
 function swJsonp(url, ms) { return new Promise((resolve, reject) => { const cb = 'swcb' + Math.random().toString(36).slice(2); const s = document.createElement('script'); let done = false;
