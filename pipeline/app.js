@@ -356,7 +356,7 @@ function bindSel(el){$$('input[data-key]',el).forEach(cb=>cb.onchange=()=>{if(cb
 function exportBar(kind){
   const cnt=kind==='sel'?`<span><b class="selCount">${ST.sel.size}</b> selected</span><button data-clear>Clear selection</button>`:`<span><b>${ST.port?ST.port.length:0}</b> lineups in portfolio</span>`;
   return `<div class="sticky-foot">${cnt}<label class="small"><input type="checkbox" class="nameid" ${store.get('nameid',false)?'checked':''}> Name (ID) format</label>
-    <button class="primary" data-exp="${kind}">${kind==='port'&&ST.entries&&ST.assign?'Download filled DK entries CSV':'Download DK upload CSV'}</button><button data-copy="${kind}">Copy CSV</button>${kind==='port'&&ST.entries&&ST.assign?`<span class="small muted">${ST.entries.rows.length} entries from your file, lineups filled in, preloaded ones unchanged</span>`:''}</div>`;
+    <button class="primary" data-exp="${kind}">${kind==='port'&&ST.entries&&ST.assign?'Download filled DK entries CSV':'Download lineups CSV (new-lineup upload page)'}</button><button data-copy="${kind}">Copy CSV</button>${kind==='port'&&ST.entries&&ST.assign?`<span class="small muted">${ST.entries.rows.length} entries from your file, lineups filled in, preloaded ones unchanged</span>`:''}</div>`;
 }
 function lineupsFor(kind){ if(kind==='port') return ST.port||[]; const m=new Map(ST.res.lineups.map(c=>[c.key,c])); if(ST.port) ST.port.forEach(c=>m.set(c.key,c)); return Array.from(ST.sel).map(k=>m.get(k)).filter(Boolean); }
 function csvFor(list){
@@ -403,7 +403,7 @@ function renderPortfolioSetup(){
     <div class="row small">
       <label><input type="checkbox" id="pT" ${cfg.stack?'checked':''}> Captain must be stacked (QB with own pass catcher or pass catcher with own QB)</label></div>
     <div class="row" style="margin-top:12px"><button class="primary" id="buildPort">Build portfolio</button><span id="portStatus" class="small muted"></span></div></div>
-    <div class="card"><h3>Exclude from portfolio</h3><p class="small muted">Tap a name to exclude or include it. Tap <b>i</b> for the player card. Shows sim mean · total optimal rate, sorted by optimal rate.</p><div class="card">${capsCard(true)}</div>
+    <div class="card"><h3>Exclude from portfolio</h3><p class="small muted">Tap a name to exclude or include it. Tap <b>i</b> for the player card. Shows sim mean · total optimal rate, sorted by optimal rate.</p><div class="card">${capsCard()}</div>
     <div class="row" id="exclChips">${pool.map(r=>`<span class="xchip ${ST.portExcl.has(r.j)?'on':''}"><button class="xbtn" data-x="${r.j}" aria-pressed="${ST.portExcl.has(r.j)}">${esc(r.p.name)} <span class="pos">${r.p.pos}</span> <span class="num" title="Sim mean (FLEX) · total optimal rate">${fmt(r.s.mean)} · ${pct(r.s.cpt+r.s.flex,0)}</span></button><button class="ibtn" data-pc="${r.j}" aria-label="Player card for ${esc(r.p.name)}" title="Player card">i</button></span>`).join('')}</div></div></div>
     <div class="card" style="margin-top:16px"><h3>Allowed captains</h3><p class="small muted">Tap to turn a captain on or off. Off by default: kickers, DSTs, non-starting QBs and anyone the sim makes optimal captain under 0.3% of the time. Sorted by sim optimal-captain rate.</p>
       <div class="row" id="cptChips">${cpool.map(r=>`<span class="xchip ${ST.cptOff.has(r.j)?'on':''}"><button class="xbtn cbtn" data-c="${r.j}" aria-pressed="${!ST.cptOff.has(r.j)}">${esc(r.p.name)} <span class="pos">${r.p.pos}</span> <span class="num" title="Sim mean as captain (1.5x) · captain optimal rate">${fmt(r.s.mean*1.5)} · ${pct(r.s.cpt,1)}</span></button><button class="ibtn" data-pc="${r.j}" aria-label="Player card" title="Player card">i</button></span>`).join('')}</div>
@@ -517,7 +517,8 @@ async function buildPortfolio(){
   if(FM){ const top=C.slice().sort((x,y)=>y.eq-x.eq).slice(0,400); const eqC=new Map(); let et=0; top.forEach(c=>{if(capOk(c.L[0])){eqC.set(c.L[0],(eqC.get(c.L[0])||0)+c.eq); et+=c.eq;}});
     qC=new Map(R.stats.map((x,j)=>[j,et>0?cfg.n*(eqC.get(j)||0)/et:0])); }
   let capRelax=false; const capC=(j)=>cfg.cptMode==='free'||capRelax?maxC:Math.min(maxC,Math.max(1,Math.ceil(qC.get(j)+0.25)));
-  const capsM=ST.caps||new Map(); const maxFor=(j)=>{ const o=capsM.get(j); return o&&o.max!=null?Math.floor(cfg.n*o.max+1e-9):maxE; };
+  const capsM=ST.caps||new Map(); const maxFor=(j)=>{ const o=capsM.get(j); if(o&&o.max!=null) return Math.floor(cfg.n*o.max+1e-9); return o&&o.min!=null?Math.max(maxE,Math.ceil(cfg.n*o.min-1e-9)):maxE; }; // a minimum lifts the default cap
+  const mins=Array.from(capsM.entries()).filter(([j,o])=>o.min!=null&&o.min>0&&!ST.portExcl.has(j)).map(([j,o])=>[j,Math.min(cfg.n,Math.ceil(cfg.n*o.min-1e-9))]);
   const ok=(c,uniq)=>{ if((cexp.get(c.L[0])||0)>=capC(c.L[0])) return false; for(const j of c.L) if((expo.get(j)||0)>=maxFor(j)) return false; for(const o of chosen) if(diff(c,o)<uniq) return false; return true; };
   const take=(c,k)=>{chosen.push(Object.assign(c,{forScript:k})); c.L.forEach(j=>expo.set(j,(expo.get(j)||0)+1)); cexp.set(c.L[0],(cexp.get(c.L[0])||0)+1);};
   const mxN=Math.max(...C.map(c=>c.near),1e-9); const mxS=new Map(live.map(s=>[s.k,Math.max(...C.map(c=>c.ns[s.k]),1e-9)]));
@@ -525,6 +526,10 @@ async function buildPortfolio(){
   const sc=FM?(c,k)=>0.6*c.ws[k]/mxW.get(k)+0.4*c.eq/mxE:(c,k)=>0.65*c.ns[k]/mxS.get(k)+0.35*c.near/mxN;
   const ranked=new Map(live.map(s=>[s.k,C.slice().sort((a,b)=>(sc(b,s.k)-sc(a,s.k))||(b.mean-a.mean))]));
   const ptr=new Map(live.map(s=>[s.k,0]));
+  // minimums first: the best-scoring lineups with each player (any script) until his minimum is met, charged to that script's quota
+  for(const [j,need] of mins){ for(let u=cfg.uniq;u>=1&&(expo.get(j)||0)<need;u--){ const cands=[]; for(const s of live) for(const c of ranked.get(s.k)){ if(c.L.includes(j)) cands.push([sc(c,s.k),c,s.k]); }
+      cands.sort((x,y)=>y[0]-x[0]); for(const [,c,k] of cands){ if((expo.get(j)||0)>=need||chosen.length>=cfg.n) break; if(chosen.includes(c)||!ok(c,u)) continue; take(c,k); want.set(k,Math.max(0,want.get(k)-1)); } } }
+  ST.portShort=mins.filter(([j,need])=>(expo.get(j)||0)<need).map(([j])=>P[j].name);
   let progress=true, uniq=cfg.uniq;
   while(chosen.length<cfg.n&&progress){
     progress=false;
@@ -547,7 +552,7 @@ async function buildPortfolio(){
     }
   }
   ST.port=chosen; ST.portUniq=uniq; ST.portQC=cfg.cptMode==='free'?null:qC; ST.portFM=FM; ST.portEV=EVM; ST.portSZ=FM?FSZ.SZ:null; if(ST.entries) assignEntries();
-  st.textContent=`Built ${chosen.length} lineups from ${C.length.toLocaleString()} candidates${uniq<cfg.uniq?` (uniqueness relaxed to ${uniq} to fill the count)`:''}${expBump?`; max exposure raised to ${Math.round(maxE/cfg.n*100)}% to fill the count`:''}.`;
+  st.textContent=`Built ${chosen.length} lineups from ${C.length.toLocaleString()} candidates${uniq<cfg.uniq?` (uniqueness relaxed to ${uniq} to fill the count)`:''}${expBump?`; max exposure raised to ${Math.round(maxE/cfg.n*100)}% to fill the count`:''}${ST.portShort&&ST.portShort.length?`; minimum not reachable under your caps and uniqueness for ${ST.portShort.join(', ')}`:''}.`;
   renderPortfolioResult();
 }
 function psh(k,l,cls='n'){const on=ST.view.portSort===k; return `<th class="sort psort ${cls}" data-k="${k}">${l}${on?(ST.view.portDir<0?' ▾':' ▴'):''}</th>`;}
@@ -973,7 +978,8 @@ function loadEntries(text,label){
   ST.entries={rows:out,label:label||'entries CSV',raw:rows,iE,iP,bom:text.charCodeAt(0)===0xFEFF,eol:/\r\n/.test(text)?'\r\n':'\n'}; ST.assign=null; ST.nTouched=false;
   const thr=store.get('dupThr',0.25); const nUnique=out.filter(e=>!e.pre&&e.fee>thr+1e-9).length;
   if(ST.res){ renderPortfolioSetup(); const pn=$('#pN'); if(pn&&nUnique) pn.value=nUnique; }
-  toast(`${out.length} entries loaded`);
+  if(ST.port&&ST.port.length){ assignEntries(); renderPortfolioResult(); } // portfolio built before the entries file: fill the entries from it now
+  toast(`${out.length} entries loaded${ST.port&&ST.port.length?`, filled from your ${ST.port.length}-lineup portfolio`:''}`);
 }
 const ckey=(e)=>e.cid||e.cname;
 function prizePool(name){ const m=/\$([\d.]+)\s*([KkMm])?/.exec(name||''); return m?parseFloat(m[1])*(m[2]?(/k/i.test(m[2])?1e3:1e6):1):null; }
@@ -1630,18 +1636,18 @@ async function scoreContestsMid(pts,N,n,prog){
     const U=Array.from(m.values()); const nu=U.length; const cpt=new Int32Array(nu), fl=new Int32Array(nu*5), cnt=new Float64Array(nu); const myU=[];
     U.forEach((u,i)=>{cpt[i]=u.cpt; for(let k=0;k<5;k++) fl[i*5+k]=u.fl[k]; cnt[i]=u.c; if(u.my) myU.push(i);});
     Cs.push({V,meta,pay,U,nu,cpt,fl,cnt,myU,myN:Float64Array.from(myU,i=>U[i].my),Pd:pay?pay.Pd:Math.round(V.total*0.22),scale:V.total/V.L.length,
-      ev:0,p1:0,pc:0,ncash:0,bestR:new Float64Array(N),uev:new Float64Array(myU.length),ucash:new Float64Array(myU.length),u1:new Float64Array(myU.length)}); }
+      ev:0,p1:0,p1t:0,pc:0,ncash:0,bestR:new Float64Array(N),uev:new Float64Array(myU.length),ucash:new Float64Array(myU.length),u1:new Float64Array(myU.length)}); }
   const hist=new Float64Array(NB), coarse=new Float64Array(NC), above=new Float64Array(NC+1), s=new Float64Array(Cs.reduce((a,c)=>Math.max(a,c.nu),0)), bins=new Int32Array(s.length);
   for(let i=0;i<N;i++){ const o=i*n;
     for(const C of Cs){ const {nu,cpt,fl,cnt}=C;
       for(let u=0;u<nu;u++){ const f=u*5; const v=1.5*pts[o+cpt[u]]+pts[o+fl[f]]+pts[o+fl[f+1]]+pts[o+fl[f+2]]+pts[o+fl[f+3]]+pts[o+fl[f+4]]; s[u]=v; let b=Math.floor(v/W); b=b<0?0:b>=NB?NB-1:b; bins[u]=b; hist[b]+=cnt[u]; coarse[(b/CW)|0]+=cnt[u]; }
       above[NC-1]=0; for(let k=NC-2;k>=0;k--) above[k]=above[k+1]+coarse[k+1];
-      let any1=0, anyC=0, best=1e12;
+      let any1=0, any1t=0, anyC=0, best=1e12;
       for(let q=0;q<C.myU.length;q++){ const u=C.myU[q]; const b=bins[u]; const cb=(b/CW)|0; let a=above[cb]; for(let bb=cb*CW+CW-1;bb>b;bb--) a+=hist[bb]; a+=0.5*(hist[b]-cnt[u]);
         a*=C.scale; const t=cnt[u]; const rank=a+1; if(rank<best) best=rank;
         const won=C.pay?C.pay.avg(a+1,a+t)*C.myN[q]:0; C.uev[q]+=won; C.ev+=won; tot$[i]+=won;
-        if(rank<=C.Pd){ C.ucash[q]++; anyC=1; C.ncash+=C.myN[q]; } if(a<0.5){ C.u1[q]++; any1=1; } }
-      C.p1+=any1; C.pc+=anyC; C.bestR[i]=best;
+        if(rank<=C.Pd){ C.ucash[q]++; anyC=1; C.ncash+=C.myN[q]; } if(a<0.5){ any1t=1; if(a===0&&t<=C.myN[q]){ C.u1[q]++; any1=1; } } } // first = nobody else's lineup at or above yours; ties with field duplicates count only in p1t
+      C.p1+=any1; C.p1t+=any1t; C.pc+=anyC; C.bestR[i]=best;
       for(let u=0;u<nu;u++){ const b=bins[u]; hist[b]=0; coarse[(b/CW)|0]=0; } }
     if(i%50===49){ prog((i+1)/N); await new Promise(r=>setTimeout(r,0)); } }
   return {Cs,tot$};
@@ -1658,7 +1664,7 @@ function renderMidOut(){
   const sgn=(v)=>`${v>=0?'+':'-'}$${Math.abs(v).toFixed(2)}`, roi=(w,f)=>f?`${w>=f?'+':''}${((w/f-1)*100).toFixed(0)}%`:'-', col$=(v)=>`color:var(${v>=0?'--good':'--bad'});font-weight:600`;
   // profit distribution across sims: total winnings in that sim minus all fees in loaded contests
   const prof=Float64Array.from(M.tot$,x=>x-fees).sort(); const pq=(x)=>prof[Math.min(N-1,Math.max(0,Math.round(x*(N-1))))]; let pUp=0; for(const v of prof) if(v>0) pUp++;
-  const crow=Cs.map(C=>{ const br=Float64Array.from(C.bestR).sort(); return `<tr><td class="small" style="white-space:normal">${esc(C.meta.label)}</td><td class="n">${C.V.total.toLocaleString()}</td><td class="n">${C.myN.reduce((a,b)=>a+b,0)}</td><td class="n">${pct(C.p1/N,1)}</td><td class="n">${pct(C.pc/N,0)}</td><td class="n">${fmt(C.ncash/N,1)}</td><td class="n">${Math.round(br[Math.floor(N/2)]).toLocaleString()}</td><td class="n">${C.meta.fee!=null?'$'+(C.meta.fee*C.myN.reduce((a,b)=>a+b,0)).toFixed(2):'-'}</td><td class="n">${C.pay?`<b>$${(C.ev/N).toFixed(2)}</b>${C.pay.real?'':' <span class="small muted">proj</span>'}`:'-'}</td>${(()=>{ const f=(C.meta.fee||0)*C.myN.reduce((a,b)=>a+b,0), w=C.ev/N; return C.pay?`<td class="n" style="${col$(w-f)}">${sgn(w-f)}</td><td class="n">${roi(w,f)}</td>`:'<td class="n">-</td><td class="n">-</td>'; })()}</tr>`; }).join('');
+  const crow=Cs.map(C=>{ const br=Float64Array.from(C.bestR).sort(); return `<tr><td class="small" style="white-space:normal">${esc(C.meta.label)}</td><td class="n">${C.V.total.toLocaleString()}</td><td class="n">${C.myN.reduce((a,b)=>a+b,0)}</td><td class="n">${pct(C.p1/N,1)}${C.p1t>C.p1?`<span class="small muted" title="Including ties for first with other people's identical lineups (the prize is split)"> (${pct(C.p1t/N,1)} tied)</span>`:''}</td><td class="n">${pct(C.pc/N,0)}</td><td class="n">${fmt(C.ncash/N,1)}</td><td class="n">${Math.round(br[Math.floor(N/2)]).toLocaleString()}</td><td class="n">${C.meta.fee!=null?'$'+(C.meta.fee*C.myN.reduce((a,b)=>a+b,0)).toFixed(2):'-'}</td><td class="n">${C.pay?`<b>$${(C.ev/N).toFixed(2)}</b>${C.pay.real?'':' <span class="small muted">proj</span>'}`:'-'}</td>${(()=>{ const f=(C.meta.fee||0)*C.myN.reduce((a,b)=>a+b,0), w=C.ev/N; return C.pay?`<td class="n" style="${col$(w-f)}">${sgn(w-f)}</td><td class="n">${roi(w,f)}</td>`:'<td class="n">-</td><td class="n">-</td>'; })()}</tr>`; }).join('');
   // lineups by expected winnings (summed across contests)
   const LU=new Map(); Cs.forEach(C=>C.myU.forEach((u,q)=>{ const x=C.U[u]; const L=[x.cpt,...x.fl]; const k=E.lineupKey(L); if(!LU.has(k)) LU.set(k,{L,ev:0,cs:[]}); const o=LU.get(k); o.ev+=C.uev[q]/N; o.cs.push({label:C.meta.label,fee:C.meta.fee||0,n:C.myN[q],cash:C.ucash[q]/N,w1:C.u1[q]/N}); }));
   const lus=Array.from(LU.values()).map(o=>({...o,cur:1.5*cur[o.L[0]]+o.L.slice(1).reduce((a,j)=>a+cur[j],0)})).sort((a,b)=>b.ev-a.ev||b.cs.reduce((x,c)=>x+c.cash,0)-a.cs.reduce((x,c)=>x+c.cash,0));
@@ -1683,7 +1689,7 @@ function renderMidOut(){
   const rootTab=(arr,h)=>`<div><h3 style="font-size:15px">${h}</h3><table><thead><tr><th>Player</th><th class="n">Now</th><th class="n">Proj final</th><th class="n">You</th><th class="n">Field</th><th class="n">${anyPay?'$ swing':'Swing'}</th></tr></thead><tbody>${arr.length?'':'<tr><td colspan="6" class="small muted">Nobody clears the bar yet.</td></tr>'}${arr.map(r=>`<tr><td><span class="tm ${teamIdx(P[r.j])?'b':'a'}"></span><button class="plink" data-pc="${r.j}">${esc(P[r.j].name)}</button><span class="pos">${P[r.j].pos}</span></td><td class="n">${fmt(cur[r.j],1)}</td><td class="n">${fmt(r.mean,1)}</td><td class="n">${pct(r.my,0)}</td><td class="n">${pct(r.fd,0)}</td><td class="n" style="color:var(${r.sw>=0?'--good':'--bad'});font-weight:600">${r.sw>=0?'+':'-'}$${Math.abs(r.sw).toFixed(2)}</td></tr>`).join('')}</tbody></table></div>`;
   el.innerHTML=`<div class="pc-tiles"><div><span class="lbl">${T[0]} win</span><b class="num">${pct((w0+tie/2)/N,0)}</b></div><div><span class="lbl">${T[1]} win</span><b class="num">${pct(1-(w0+tie/2)/N,0)}</b></div><div><span class="lbl">Proj final</span><b class="num">${fmt(m0/N,1)} - ${fmt(m1/N,1)}</b></div>
       ${Cs.length?`<div><span class="lbl">Entry fees</span><b class="num">${fees?'$'+fees.toFixed(2):'-'}</b></div><div><span class="lbl">Expected winnings</span><b class="num">${anyPay?'$'+ev.toFixed(2):'-'}</b></div>
-      ${anyPay?`<div><span class="lbl">Exp. profit after fees</span><b class="num" style="${col$(ev-fees)}">${sgn(ev-fees)}</b></div><div><span class="lbl">ROI</span><b class="num" style="${col$(ev-fees)}">${roi(ev,fees)}</b></div><div><span class="lbl">Chance of profit</span><b class="num">${pct(pUp/N,0)}</b></div><div><span class="lbl">Profit p10 / p50 / p90</span><b class="num">${sgn(pq(.1))} / ${sgn(pq(.5))} / ${sgn(pq(.9))}</b></div>`:''}<div><span class="lbl">Any entry first</span><b class="num">${pct(1-Cs.reduce((a,C)=>a*(1-C.p1/N),1),1)}</b></div>`:''}</div>
+      ${anyPay?`<div><span class="lbl">Exp. profit after fees</span><b class="num" style="${col$(ev-fees)}">${sgn(ev-fees)}</b></div><div><span class="lbl">ROI</span><b class="num" style="${col$(ev-fees)}">${roi(ev,fees)}</b></div><div><span class="lbl">Chance of profit</span><b class="num">${pct(pUp/N,0)}</b></div><div><span class="lbl">Profit p10 / p50 / p90</span><b class="num">${sgn(pq(.1))} / ${sgn(pq(.5))} / ${sgn(pq(.9))}</b></div>`:''}<div><span class="lbl">Any entry first</span><b class="num">${pct(1-Cs.reduce((a,C)=>a*(1-C.p1/N),1),1)}</b><span class="small muted">${pct(1-Cs.reduce((a,C)=>a*(1-C.p1t/N),1),1)} incl. ties</span></div>`:''}</div>
     ${Cs.length?`<div class="card" style="margin-top:12px"><h3>Contests from here</h3><p class="small muted">Each sim's final points re-rank the full field from your standings files. P(1st) and P(cash) are for any of your entries in that contest.</p><div class="tw" style="border:0"><table><thead><tr><th>Contest</th><th class="n">Field</th><th class="n">Yours</th><th class="n">P(1st)</th><th class="n">P(cash)</th><th class="n">Avg cashing</th><th class="n">Median best rank</th><th class="n">Fees</th><th class="n">Exp. winnings</th><th class="n">Exp. profit</th><th class="n">ROI</th></tr></thead><tbody>${crow}
       ${Cs.length>1&&anyPay?`<tr><td><b>Total</b></td><td></td><td class="n"><b>${Cs.reduce((a,C)=>a+C.myN.reduce((x,y)=>x+y,0),0)}</b></td><td></td><td></td><td></td><td></td><td class="n"><b>$${fees.toFixed(2)}</b></td><td class="n"><b>$${ev.toFixed(2)}</b></td><td class="n" style="${col$(ev-fees)}">${sgn(ev-fees)}</td><td class="n"><b>${roi(ev,fees)}</b></td></tr>`:''}</tbody></table></div></div>
     <div class="card" style="margin-top:12px"><h3>Who to root for</h3><p class="small muted">Your expected total winnings when the player lands in his top quarter of outcomes from here, minus when he lands in his bottom quarter. Swing is fit across every sim, then scaled to his top-quarter minus bottom-quarter outcome; ${capped?'winnings are capped at the 99th percentile sim so one rare first-place finish does not drive it':'winnings are not capped because one of your entries wins its contest in '+pct(pFirst,1)+' of sims, so those wins count in full'}. Hidden: players under 3% for both you and the field who have not scored yet.</p><div class="grid2">${rootTab(root.filter(r=>r.sw>0).slice(0,10),'Root for')}${rootTab(root.filter(r=>r.sw<0).slice(-10).reverse(),'Root against')}</div></div>

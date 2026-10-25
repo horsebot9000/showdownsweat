@@ -76,11 +76,12 @@ async function swProcess() {
     if (!SW.ran) { swStatus('Pulling the line from ESPN…'); try { await pullLines(); } catch (e) {} swStatus('Running the pregame sim (calibrated to the line)…'); await run(); SW.ran = !!ST.res; }
     if (ST.res) { document.body.classList.add('sw-ready'); const ms = ST.res.meanScore; const pg = $('#swPre'); if (pg && ms) pg.textContent = `Pregame sim: ${ST.teams[0]} ${fmt(ms[0])}, ${ST.teams[1]} ${fmt(ms[1])} (line ${$('#impA').value} / ${$('#impB').value}, ${ST.res.N.toLocaleString()} sims)`; }
     for (const [cid, f] of SW.files) { if (!ST.levs || !ST.levs.has(cid) || ST.levs.get(cid).file !== f.name || ST.levs.get(cid).at < f.t) { swStatus(`Reading ${f.name}…`); try { await swStandings(f.file); } catch (e) { toast(`${f.name}: ${e.message}`); } } }
-    ST.mid = null; renderSweat();
+    const sig = Array.from(ST.levs ? ST.levs.values() : []).map((V) => V.cid + ':' + V.at).join('|') + '|' + (ST.dkUser || ''); if (sig !== SW.sig) { SW.sig = sig; ST.mid = null; } renderSweat();
     const n = ST.levs ? ST.levs.size : 0; const mine = n ? Array.from(ST.levs.values()).reduce((a, V) => a + levMine(V).length, 0) : 0;
     swStatus(n ? `${n} contest${n > 1 ? 's' : ''} loaded, ${mine} of your entries${!mine ? ' (check the username)' : ''}. Live stats refresh every 60 seconds and the rest of the game re-sims after each pull.` : 'Drop the contest standings (.zip) for each contest to sweat it.');
     if (n && !SW.live) { SW.live = true; ST.midAuto = true; ST.midFollow = true; renderMidCard(); const la = $('#liveAuto'); if (la) { la.checked = true; la.dispatchEvent(new Event('change')); } }
     else if (n && ST.live) runMid();
+    if (n) setTimeout(() => { if (!ST.mid && !ST.midBusy) runMid(); }, 5000); // no live pull yet (before kickoff or ESPN slow): sim from the current form state
   } catch (e) { console.error(e); swStatus(String(e.message || e)); }
   finally { SW.busy = false; if (SW.again) { SW.again = false; swProcess(); } }
 }
@@ -94,18 +95,49 @@ function renderSweat() {
   $$('.swFee', el).forEach((i) => i.onchange = () => { const f = levFees(); f[i.dataset.cid] = Math.max(0, +i.value || 0); ST.levFeeMem = f; store.set('levFees', f); ST.mid = null; if (ST.live) runMid(); });
   const hdr = $('#swGame'); if (hdr) hdr.textContent = ST.teams && ST.teams[0] && SW.dg ? `${ST.teams[0]} @ ${ST.teams[1]}` : '';
 }
+/* one screen at a time: every section of the live view belongs to a tab */
+const SW_TABS = [['setup', 'Contests'], ['odds', 'Odds'], ['root', 'Root for'], ['lineups', 'Your lineups'], ['now', 'Standings now'], ['players', 'Players'], ['game', 'Game state']];
+function swTabOf(node) { const h = node.querySelector && node.querySelector('h3'); const t = h ? h.textContent : '';
+  if (node.classList && node.classList.contains('pc-tiles')) return 'odds';
+  if (/Contests from here/.test(t)) return 'odds'; if (/root for/i.test(t)) return 'root'; if (/Your lineups from here/.test(t)) return 'lineups';
+  if (/Player finals|Live DK points|Team stats/.test(t)) return 'players'; if (/contests now|highest-scoring/i.test(t)) return 'now';
+  return null; }
+function swApplyTabs() {
+  const ready = document.body.classList.contains('sw-ready'); const hasMid = !!($('#midOut') && $('#midOut').children.length);
+  if (!SW.tab) { try { SW.tab = store.get('swTab', 'setup'); } catch (e) { SW.tab = 'setup'; } }
+  if (!ready) SW.tab = 'setup'; else if (!SW.picked && SW.tab === 'setup' && hasMid) SW.tab = 'odds';
+  const tab = SW.tab;
+  $$('#swTabs button').forEach((b) => { const k = b.dataset.swt; b.disabled = k !== 'setup' && !ready; b.setAttribute('aria-selected', String(k === tab)); });
+  const show = (el, on) => { if (el) el.style.display = on ? '' : 'none'; };
+  show($('#swSetup'), tab === 'setup'); const w = $('#swWait'); if (w) { w.textContent = ST.midBusy ? 'Simulating the rest of the game and ranking every contest…' : 'Results show here after the first sim (it starts once standings are loaded).'; show(w, ready && !hasMid && ['odds', 'root', 'lineups'].includes(tab)); }
+  const lo0 = $('#liveOut'); const noLive = !lo0 || !lo0.children.length; if (w && ready && noLive && ['now', 'players'].includes(tab) && !(tab === 'players' && hasMid)) { w.textContent = 'Live standings show here after the first ESPN pull (every 60 seconds once the game starts; Game state tab to pull now).'; show(w, true); }
+  const pane = $('#pane-live'); if (!pane) return; pane.hidden = false; pane.style.display = tab === 'setup' || !ready ? 'none' : '';
+  const kids = Array.from(pane.children);
+  kids.forEach((k) => { if (k.id === 'liveOut' || k.id === 'midCard') return; show(k, tab === 'game'); }); // ESPN pull controls
+  const lo = $('#liveOut'); if (lo) { show(lo, true); Array.from(lo.children).forEach((c) => {
+    if (c.classList.contains('final')) { const sc = $('#swScore'); if (sc) sc.innerHTML = c.innerHTML; show(c, false); return; }
+    if (c.querySelector && c.querySelectorAll('h3').length > 1 && !c.matches('.card')) { show(c, true); Array.from(c.children).forEach((g) => show(g, swTabOf(g) === tab)); c.style.display = Array.from(c.children).some((g) => g.style.display !== 'none') ? '' : 'none'; return; }
+    show(c, swTabOf(c) === tab); }); }
+  const mc = $('#midCard'); if (mc) { mc.classList.toggle('swbare', tab !== 'game'); Array.from(mc.children).forEach((c) => {
+    if (c.id !== 'midOut') { show(c, tab === 'game'); return; } show(c, true);
+    Array.from(c.children).forEach((x) => show(x, swTabOf(x) === tab)); }); }
+}
 function sweatBoot() {
   document.body.classList.add('sweat'); document.title = 'Showdown Sweat';
   const pane = $('#pane-live'); pane.hidden = false;
   const box = document.createElement('div'); box.id = 'swBox'; box.className = 'card'; box.style.marginBottom = '16px';
-  box.innerHTML = `<div class="row" style="justify-content:space-between;align-items:baseline"><h3 style="font-size:22px">Showdown Sweat <span id="swGame" class="muted" style="font-size:16px"></span></h3><span class="small muted">${esc((MODEL.meta && MODEL.meta.data) || '')}</span></div>
-    <div class="row" style="gap:16px;align-items:flex-start;flex-wrap:wrap;margin-top:8px">
+  box.innerHTML = `<div class="row" style="justify-content:space-between;align-items:baseline"><h3 style="font-size:22px">Showdown Sweat <span id="swGame" class="muted" style="font-size:16px"></span></h3><span id="swScore" class="num" style="font-size:18px"></span></div>
+    <nav class="swtabs" id="swTabs" role="tablist">${SW_TABS.map(([k, l]) => `<button role="tab" data-swt="${k}">${l}</button>`).join('')}</nav><p class="note" id="swWait" style="display:none;margin-top:10px"></p>
+    <div id="swSetup"><div class="row" style="gap:16px;align-items:flex-start;flex-wrap:wrap;margin-top:8px">
       <label class="small" style="display:flex;flex-direction:column;gap:4px">DraftKings username<input id="swUser" type="text" value="${esc(store.get('dkUser', '') || '')}" placeholder="username" style="width:200px"></label>
       <label class="small" style="display:flex;flex-direction:column;gap:4px;flex:1;min-width:280px">Contest links (one per line)<textarea id="swLinks" rows="3" placeholder="https://www.draftkings.com/draft/contest/196403751" style="width:100%">${esc(store.get('swLinks', '') || '')}</textarea></label>
       <div class="drop" id="swDrop" role="button" tabindex="0" style="flex:1;min-width:260px"><b>Drop each contest's standings (.zip)</b><span class="small muted">Contest page → Export standings (after lock). Showdown lineups lock at kickoff, so once per contest is enough.</span><input type="file" id="swFile" accept=".zip,.csv" multiple hidden></div></div>
-    <p class="small" id="swStatus" style="margin-top:8px"></p><p class="small muted" id="swPre"></p><div id="swContests"></div>`;
+    <p class="small" id="swStatus" style="margin-top:8px"></p><p class="small muted" id="swPre"></p><div id="swContests"></div></div>`;
   pane.parentNode.insertBefore(box, pane);
   renderLiveTab();
+  $$('#swTabs button').forEach((b) => b.onclick = () => { if (b.disabled) return; SW.tab = b.dataset.swt; SW.picked = true; try { store.set('swTab', SW.tab); } catch (e) {} swApplyTabs(); window.scrollTo(0, 0); });
+  new MutationObserver(() => { if (SW.raf) return; SW.raf = requestAnimationFrame(() => { SW.raf = 0; swApplyTabs(); }); }).observe(pane, { childList: true, subtree: true });
+  swApplyTabs();
   const go = () => { store.set('swLinks', $('#swLinks').value); swProcess(); };
   $('#swUser').onchange = () => { ST.dkUser = $('#swUser').value.trim(); store.set('dkUser', ST.dkUser); ST.mid = null; renderSweat(); renderLive(); if (ST.live && ST.levs && ST.levs.size) runMid(); };
   $('#swLinks').onchange = go; $('#swLinks').onpaste = () => setTimeout(go, 50);
