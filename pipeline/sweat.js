@@ -126,7 +126,7 @@ function sweatBoot() {
   document.body.classList.add('sweat'); document.title = 'Showdown Sweat';
   const pane = $('#pane-live'); pane.hidden = false;
   const box = document.createElement('div'); box.id = 'swBox'; box.className = 'card'; box.style.marginBottom = '16px';
-  box.innerHTML = `<div class="row" style="justify-content:space-between;align-items:baseline"><h3 style="font-size:22px">Showdown Sweat <span id="swGame" class="muted" style="font-size:16px"></span></h3><span id="swScore" class="num" style="font-size:18px"></span></div>
+  box.innerHTML = `<div class="row" style="justify-content:space-between;align-items:baseline"><h3 style="font-size:22px">Showdown Sweat <span id="swGame" class="muted" style="font-size:16px"></span></h3><div class="row" style="gap:12px;align-items:center"><span id="swScore" class="num" style="font-size:18px"></span><button id="swTheme" class="small" title="Switch light / dark" aria-label="Switch light or dark mode"></button></div></div>
     <nav class="swtabs" id="swTabs" role="tablist">${SW_TABS.map(([k, l]) => `<button role="tab" data-swt="${k}">${l}</button>`).join('')}</nav><p class="note" id="swWait" style="display:none;margin-top:10px"></p>
     <div id="swSetup"><div class="row" style="gap:16px;align-items:flex-start;flex-wrap:wrap;margin-top:8px">
       <label class="small" style="display:flex;flex-direction:column;gap:4px">DraftKings username<input id="swUser" type="text" value="${esc(store.get('dkUser', '') || '')}" placeholder="username" style="width:200px"></label>
@@ -135,6 +135,11 @@ function sweatBoot() {
       <textarea id="swLinks" rows="2" placeholder="https://www.draftkings.com/draft/contest/196403751" style="width:100%;margin-top:6px">${esc(store.get('swLinks', '') || '')}</textarea></details>
     <p class="small" id="swStatus" style="margin-top:8px"></p><p class="small muted" id="swPre"></p><div id="swContests"></div></div>`;
   pane.parentNode.insertBefore(box, pane);
+  // light / dark: remembered per browser, first visit follows the system setting
+  const sysDark = () => window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const setTheme = (t) => { document.documentElement.dataset.theme = t; const b = $('#swTheme'); if (b) b.textContent = t === 'dark' ? '☀ Light' : '☾ Dark'; };
+  let th = null; try { th = store.get('swTheme', null); } catch (e) {} setTheme(th || (sysDark() ? 'dark' : 'light'));
+  $('#swTheme').onclick = () => { const t = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'; setTheme(t); try { store.set('swTheme', t); } catch (e) {} };
   renderLiveTab();
   $$('#swTabs button').forEach((b) => b.onclick = () => { if (b.disabled) return; SW.tab = b.dataset.swt; SW.picked = true; try { store.set('swTab', SW.tab); } catch (e) {} swApplyTabs(); window.scrollTo(0, 0); });
   new MutationObserver(() => { if (SW.raf) return; SW.raf = requestAnimationFrame(() => { SW.raf = 0; swApplyTabs(); }); }).observe(pane, { childList: true, subtree: true });
