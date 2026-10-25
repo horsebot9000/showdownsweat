@@ -66,7 +66,7 @@ async function swProcess() {
   if (SW.busy) { SW.again = true; return; } SW.busy = true;
   try {
     const user = ($('#swUser').value || '').trim(); if (user) { ST.dkUser = user; store.set('dkUser', user); }
-    const ids = new Set([...swIds($('#swLinks').value), ...SW.files.keys()]); if (!ids.size) { swStatus('Paste a contest link or drop a standings file to start.'); return; }
+    const ids = new Set([...swIds($('#swLinks').value), ...SW.files.keys()]); if (!ids.size) { swStatus('Drop your contest standings (.zip) to start.'); return; }
     swStatus('Reading contest details from DraftKings…'); await Promise.all(Array.from(ids).map(swContest));
     const okC = Array.from(ids).map((c) => SW.info.get(c)).filter((x) => x && x.ok); const dgs = new Set(okC.map((x) => x.dg));
     if (dgs.size > 1) { swStatus('These contests are for different games. Showdown Sweat follows one game at a time: remove the other links.'); return; }
@@ -130,8 +130,9 @@ function sweatBoot() {
     <nav class="swtabs" id="swTabs" role="tablist">${SW_TABS.map(([k, l]) => `<button role="tab" data-swt="${k}">${l}</button>`).join('')}</nav><p class="note" id="swWait" style="display:none;margin-top:10px"></p>
     <div id="swSetup"><div class="row" style="gap:16px;align-items:flex-start;flex-wrap:wrap;margin-top:8px">
       <label class="small" style="display:flex;flex-direction:column;gap:4px">DraftKings username<input id="swUser" type="text" value="${esc(store.get('dkUser', '') || '')}" placeholder="username" style="width:200px"></label>
-      <label class="small" style="display:flex;flex-direction:column;gap:4px;flex:1;min-width:280px">Contest links (one per line)<textarea id="swLinks" rows="3" placeholder="https://www.draftkings.com/draft/contest/196403751" style="width:100%">${esc(store.get('swLinks', '') || '')}</textarea></label>
-      <div class="drop" id="swDrop" role="button" tabindex="0" style="flex:1;min-width:260px"><b>Drop each contest's standings (.zip)</b><span class="small muted">Contest page → Export standings (after lock). Showdown lineups lock at kickoff, so once per contest is enough.</span><input type="file" id="swFile" accept=".zip,.csv" multiple hidden></div></div>
+      <div class="drop" id="swDrop" role="button" tabindex="0" style="flex:1;min-width:300px;padding:22px"><b style="font-size:17px">Drop your contest standings (.zip)</b><span class="small muted">One file per contest, straight from DraftKings (contest page → Export standings, after lock). Fee, payouts and players load from the contest number in the file name. Drop several at once; Showdown lineups lock at kickoff, so once per contest covers the whole game.</span><input type="file" id="swFile" accept=".zip,.csv" multiple hidden></div></div>
+    <details style="margin-top:8px" ${(store.get('swLinks', '') || '').trim() ? 'open' : ''}><summary class="small muted">Before lock? Paste contest links to load the game and pregame odds early (optional)</summary>
+      <textarea id="swLinks" rows="2" placeholder="https://www.draftkings.com/draft/contest/196403751" style="width:100%;margin-top:6px">${esc(store.get('swLinks', '') || '')}</textarea></details>
     <p class="small" id="swStatus" style="margin-top:8px"></p><p class="small muted" id="swPre"></p><div id="swContests"></div></div>`;
   pane.parentNode.insertBefore(box, pane);
   renderLiveTab();
@@ -139,7 +140,7 @@ function sweatBoot() {
   new MutationObserver(() => { if (SW.raf) return; SW.raf = requestAnimationFrame(() => { SW.raf = 0; swApplyTabs(); }); }).observe(pane, { childList: true, subtree: true });
   swApplyTabs();
   const go = () => { store.set('swLinks', $('#swLinks').value); swProcess(); };
-  $('#swUser').onchange = () => { ST.dkUser = $('#swUser').value.trim(); store.set('dkUser', ST.dkUser); ST.mid = null; renderSweat(); renderLive(); if (ST.live && ST.levs && ST.levs.size) runMid(); };
+  $('#swUser').onchange = () => { const u = $('#swUser').value.trim(); if (u === (ST.dkUser || '')) return; ST.dkUser = u; store.set('dkUser', u); SW.sig = null; ST.mid = null; renderSweat(); renderLive(); if (ST.levs && ST.levs.size && ST.res) runMid(); };
   $('#swLinks').onchange = go; $('#swLinks').onpaste = () => setTimeout(go, 50);
   const fi = $('#swFile'), d = $('#swDrop'); const take = async (files) => {
     for (const f of files) { let head = ''; try { head = (await readUpload(f)).slice(0, 400); } catch (e) { toast(`${f.name}: ${e.message}`); continue; }
@@ -148,6 +149,9 @@ function sweatBoot() {
     go(); };
   fi.onchange = () => { const f = Array.from(fi.files); fi.value = ''; if (f.length) take(f); }; d.onclick = (e) => { if (e.target.tagName !== 'INPUT') fi.click(); };
   d.ondragover = (e) => { e.preventDefault(); d.classList.add('over'); }; d.ondragleave = () => d.classList.remove('over'); d.ondrop = (e) => { e.preventDefault(); d.classList.remove('over'); const f = Array.from(e.dataTransfer.files); if (f.length) take(f); };
-  swStatus($('#swLinks').value.trim() ? 'Starting…' : 'Type your username, paste your contest links, and drop each contest\'s standings (.zip).');
+  swStatus($('#swLinks').value.trim() ? 'Starting…' : 'Type your DraftKings username and drop your contest standings (.zip). That\'s it.');
+  // drop a file anywhere on the page
+  document.addEventListener('dragover', (e) => { if (e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files')) e.preventDefault(); });
+  document.addEventListener('drop', (e) => { if (e.target.closest && e.target.closest('#swDrop')) return; const f = Array.from((e.dataTransfer && e.dataTransfer.files) || []); if (!f.length) return; e.preventDefault(); SW.tab = 'setup'; SW.picked = false; take(f); });
   if ($('#swLinks').value.trim()) go();
 }
