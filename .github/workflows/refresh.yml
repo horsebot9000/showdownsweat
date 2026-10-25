@@ -1,7 +1,15 @@
+# Weekly model refresh for Showdown Sweat.
+# Tuesday 11:00 UTC (7 AM Eastern), after Monday Night Football is in nflverse's play-by-play.
+# Downloads the season's data, refits the model, rebuilds the page, and commits index.html.
+# Also runs whenever code in pipeline/ changes. By hand: Actions tab > Refresh model > Run workflow.
 name: Refresh model
 on:
   schedule:
-    - cron: '0 11 * * 2'
+    - cron: '0 11 * * 2'   # Tuesday 7 AM Eastern, after Monday Night Football
+    - cron: '0 11 * * 3'   # Wednesday backup in case nflverse posts late (no change, no commit)
+  push:                    # any code change rebuilds the page right away
+    branches: [main]
+    paths: ['pipeline/**', 'refresh.py', 'requirements.txt', '.github/workflows/refresh.yml']
   workflow_dispatch:
 permissions:
   contents: write
@@ -20,6 +28,7 @@ jobs:
           cache: pip
           cache-dependency-path: requirements.txt
       - run: pip install -r requirements.txt
+      # past seasons' play-by-play never changes: keep it between runs so only the current season downloads
       - uses: actions/cache@v4
         with:
           path: data
