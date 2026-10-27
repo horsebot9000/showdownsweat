@@ -96,16 +96,16 @@ function renderSweat() {
   const hdr = $('#swGame'); if (hdr) hdr.textContent = ST.teams && ST.teams[0] && SW.dg ? `${ST.teams[0]} @ ${ST.teams[1]}` : '';
 }
 /* one screen at a time: every section of the live view belongs to a tab */
-const SW_TABS = [['setup', 'Contests'], ['odds', 'Odds'], ['root', 'Root for'], ['lineups', 'Your lineups'], ['now', 'Standings now'], ['players', 'Players'], ['game', 'Game state']];
+const SW_TABS = [['setup', 'Contests'], ['odds', 'Odds & root for'], ['lineups', 'Your lineups'], ['now', 'Standings now'], ['players', 'Players'], ['game', 'Game state']];
 function swTabOf(node) { const h = node.querySelector && node.querySelector('h3'); const t = h ? h.textContent : '';
   if (node.classList && node.classList.contains('pc-tiles')) return 'odds';
-  if (/Contests from here/.test(t)) return 'odds'; if (/root for/i.test(t)) return 'root'; if (/Your lineups from here/.test(t)) return 'lineups';
+  if (/Contests from here/.test(t)) return 'odds'; if (/root for/i.test(t)) return 'odds'; if (/Your lineups from here/.test(t)) return 'lineups';
   if (/Player finals|Live DK points|Team stats/.test(t)) return 'players'; if (/contests now|highest-scoring/i.test(t)) return 'now';
   return null; }
 function swApplyTabs() {
   const ready = document.body.classList.contains('sw-ready'); const hasMid = !!($('#midOut') && $('#midOut').children.length);
   if (!SW.tab) { try { SW.tab = store.get('swTab', 'setup'); } catch (e) { SW.tab = 'setup'; } }
-  if (!ready) SW.tab = 'setup'; else if (!SW.picked && SW.tab === 'setup' && hasMid) SW.tab = 'odds';
+  if (!SW_TABS.some(([k]) => k === SW.tab)) SW.tab = 'odds'; if (!ready) SW.tab = 'setup'; else if (!SW.picked && SW.tab === 'setup' && hasMid) SW.tab = 'odds';
   const tab = SW.tab;
   $$('#swTabs button').forEach((b) => { const k = b.dataset.swt; b.disabled = k !== 'setup' && !ready; b.setAttribute('aria-selected', String(k === tab)); });
   const show = (el, on) => { if (el) el.style.display = on ? '' : 'none'; };
