@@ -2001,7 +2001,7 @@ async function buildPortfolio(){
   if(cfg.n>40){ // large portfolios: add the 4 best lineups from a sample of individual sims for more distinct, correlated builds
     const ns=Math.min(N,Math.round(Math.min(900,cfg.n*4))); const R2=E.makeRng(321); const buf=new Float64Array(n);
     for(let k=0;k<ns;k++){ const i=Math.floor(R2()*N); for(let j=0;j<n;j++) buf[j]=pts[i*n+j]; E.topK(G,{eligible:el2},buf,4).forEach(h=>add(h.L));
-      if(k%100===0){st.textContent=`Generating candidates from individual sims… ${k}/${ns}`; await new Promise(r=>setTimeout(r,0));} } }
+      if(k%100===0){st.textContent=`Generating candidates from individual sims… ${k}/${ns}`; await uiYield();} } }
   const isPC=(p)=>['WR','TE','RB'].includes(p.pos);
   let C=Array.from(cand.values()).filter(c=>{const L=c.L; if(L.some(j=>ST.portExcl.has(j))) return false; const cp=P[L[0]];
     if(ST.cptOff&&ST.cptOff.has(L[0])) return false;
@@ -2012,7 +2012,7 @@ async function buildPortfolio(){
     return true;});
   // contest field (ownership mode)
   ST.fieldSharp=cfg.sharp; const FM=(cfg.obj==='field'||cfg.obj==='ev')&&hasOwn(); const EVM=FM&&cfg.obj==='ev'; let thrW=null,thr1=null,dupMap=null,F2=40000;
-  if(FM){ st.textContent='Building contest field from ownership…'; await new Promise(r=>setTimeout(r,0));
+  if(FM){ st.textContent='Building contest field from ownership…'; await uiYield();
     const FLD=buildField(4000,13); const F=FLD.F, fl=FLD.L;
     // contest sizes: one per main contest when entries are loaded, else the single size box
     const thrE=store.get('dupThr',0.25); let SZ=[];
@@ -2031,7 +2031,7 @@ async function buildPortfolio(){
       if(EVM){ fsc.sort(); for(let k=0;k<GQ;k++) QV[i*GQ+k]=fsc[F-1-gi[k]]; }
       thr1[i]=top[k1-1]; let ms=0; for(let q=0;q<KT;q++) ms+=top[q]; const beta=Math.max(0.5,ms/KT-top[KT-1]);
       for(let s=0;s<SZ.length;s++) thrS[s][i]=kS[s]?top[kS[s]-1]:top[KT-1]+beta*Math.log(KT*SZ[s].size/F);
-      if(i%1000===0){st.textContent=`Scoring the field in each sim… ${i}/${N}`; await new Promise(r=>setTimeout(r,0));} }
+      if(i%1000===0){st.textContent=`Scoring the field in each sim… ${i}/${N}`; await uiYield();} }
     dupMap=new Map(); for(let k=0;k<F2;k++){const L=FLD.one(); if(!L) continue; const key=E.lineupKey(L); dupMap.set(key,(dupMap.get(key)||0)+1);}
     // generic DK-style payout curve per contest: 22% paid, min cash 2x fee, prize(r) = max(minCash, C/r), pool = size x fee x 0.85
     const HN=(x)=>x<1?0:Math.log(x)+0.5772+1/(2*x);
@@ -2065,7 +2065,7 @@ async function buildPortfolio(){
         c.eqBy=c.evBy.map((e,s)=>e/FSZ.PAY[s].fee); c.eq=c.eqBy.reduce((t,e,s)=>t+e*FSZ.SZ[s].w,0); c.ws=Array.from(evS,(x,k)=>sn[k]?x/sn[k]:0); } } const cc=counts.get(c.key); c.opt=cc?cc.n/N:0;
     c.sal=P[L[0]].salC+L.slice(1).reduce((a,j)=>a+P[j].salF,0);
     let bk=0,bv=-1; for(let k=0;k<K;k++){ if(!sn[k]) continue; const lift=FM?c.ws[k]:c.ns[k]; if(lift>bv){bv=lift;bk=k;} } c.script=bk;
-    if(ci%300===0){st.textContent=`Scoring candidate lineups… ${ci}/${C.length}`; await new Promise(r=>setTimeout(r,0));}
+    if(ci%300===0){st.textContent=`Scoring candidate lineups… ${ci}/${C.length}`; await uiYield();}
   }
   // allocation
   const live=scripts.filter(s=>s.n>=N*0.01);
@@ -2674,7 +2674,7 @@ async function renderCash(){
   else { const top=E.topK(G,{eligible:elig},Float64Array.from(R.stats.map(s=>s.mean)),300); F=top.length; fl=new Int16Array(F*6); top.forEach((h,i)=>fl.set(h.L,i*6)); src='the 300 highest-mean lineups (upload ownership for a field drawn from projected ownership)'; }
   const cut=new Float32Array(N); const fs=new Float32Array(F); const kq=Math.floor(F*0.56);
   for(let i=0;i<N;i++){ const o=i*n; for(let f=0;f<F;f++){const b=f*6; fs[f]=1.5*pts[o+fl[b]]+pts[o+fl[b+1]]+pts[o+fl[b+2]]+pts[o+fl[b+3]]+pts[o+fl[b+4]]+pts[o+fl[b+5]];} fs.sort(); cut[i]=fs[kq];
-    if(i%2000===0){ el.innerHTML=`<p class="note">Scoring the cash line in each sim… ${i}/${N}</p>`; await new Promise(r=>setTimeout(r,0)); } }
+    if(i%2000===0){ el.innerHTML=`<p class="note">Scoring the cash line in each sim… ${i}/${N}</p>`; await uiYield(); } }
   const sc=new Float32Array(N);
   for(const c of C){ let s=0,cash=0; for(let i=0;i<N;i++){const o=i*n; let v=1.5*pts[o+c.L[0]]; for(let k=1;k<6;k++) v+=pts[o+c.L[k]]; sc[i]=v; s+=v; if(v>=cut[i]) cash++;}
     const srt=Float32Array.from(sc).sort(); const q=(x)=>srt[Math.floor(x*(N-1))]; c.mean=s/N; c.p10=q(.1); c.p20=q(.2); c.p30=q(.3); c.p50=q(.5); c.cash=cash/N; c.sal=P[c.L[0]].salC+c.L.slice(1).reduce((a,j)=>a+P[j].salF,0);
@@ -3005,14 +3005,15 @@ function dkFromStandings(){
   return {pts,st:null,team:null,score:null,unk:new Set(),src:`DraftKings FPTS from ${V.file}`};
 }
 async function pullLive(){
+  if(ST.pulling) return; ST.pulling=true; setTimeout(()=>{ST.pulling=false;},45000);
   const btn=$('#liveGo'), note=$('#liveStatus'); btn.disabled=true; note.textContent='Pulling from ESPN…';
   try{ const sb=await espnScoreboardComp(); const r=await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${sb.id}`,{cache:'no-store'}); if(!r.ok) throw new Error('ESPN returned '+r.status);
     const js=await r.json(); ST.live=dkFromEspn(js); ST.live.at=new Date(); ST.live.state=espnState(sb.comp,js.situation,ST.live);
     if(ST.live.state&&$('#mFollow')&&$('#mFollow').checked) ST.midForm=Object.assign({},ST.midForm||{},ST.live.state);
     note.textContent=`Updated ${ST.live.at.toLocaleTimeString([],{hour:'numeric',minute:'2-digit',second:'2-digit'})}${ST.liveStatus?' · '+ST.liveStatus:''}`; renderLive();
-    if($('#mAuto')&&$('#mAuto').checked&&ST.res&&!ST.midBusy) runMid();
+    if($('#mAuto')&&$('#mAuto').checked&&ST.res){ if(ST.midBusy) ST.midAgain=true; else runMid(); }
   }catch(e){ note.textContent=/Failed to fetch|NetworkError|Load failed|Content Security/i.test(String(e))?'Could not reach ESPN. The claude.ai viewer blocks outside requests: use the downloaded HTML file, or use DraftKings points from your contest standings files.':String(e.message||e); }
-  btn.disabled=false;
+  btn.disabled=false; ST.pulling=false;
 }
 /* live standings: re-rank every loaded contest with the current points */
 function liveContests(pts){
@@ -3176,6 +3177,9 @@ function buildStart(F){
     Z.buf={kp}; Z.add=add; }
   return Z;
 }
+/* yield to the page between chunks of work. Background tabs throttle setTimeout (to once a minute after a few minutes
+   hidden), which stalled the rest-of-game re-sim for as long as the tab sat behind another one; message events are not throttled */
+function uiYield(){ if(!document.hidden) return new Promise(r=>setTimeout(r,0)); return new Promise(r=>{ const ch=new MessageChannel(); ch.port1.onmessage=()=>r(); ch.port2.postMessage(0); }); }
 async function runMid(){
   if(!ST.res||ST.midBusy) return; const st=$('#mStatus'); const btn=$('#mGo'); ST.midBusy=true; if(btn) btn.disabled=true;
   try{
@@ -3188,13 +3192,14 @@ async function runMid(){
     const per=Math.ceil(N/NW); const parts=(await Promise.all(workers.map((w,k)=>{const nn=Math.min(per,N-k*per); if(nn<=0) return null; return call(w,{type:'sim',slate,s,n:nn,seed:(Date.now()+k*104729)>>>0,eligible:elig,tb,start});}))).filter(Boolean);
     const n=slate.players.length; let NN=0; parts.forEach(p=>NN+=p.n); const pts=new Float32Array(NN*n), sc=new Float32Array(NN*2); let o=0;
     for(const p of parts){ pts.set(p.pts,o*n); for(let i=0;i<p.n;i++){ sc[(o+i)*2]=p.sm[i*8]; sc[(o+i)*2+1]=p.sm[i*8+1]; } o+=p.n; }
-    st.textContent='Ranking every contest in every sim…'; await new Promise(r=>setTimeout(r,0));
+    st.textContent='Ranking every contest in every sim…'; await uiYield();
     const res=await scoreContestsMid(pts,NN,n,(d)=>{st.textContent=`Ranking every contest in every sim… ${Math.round(100*d)}%`;});
     ST.mid={N:NN,n,pts,sc,F,at:new Date(),...res}; const nOut=start.out.length;
     st.textContent=`${NN.toLocaleString()} sims from ${F.q===5?'OT':'Q'+F.q} ${F.clk}, ${ST.teams[0]} ${F.s0} - ${ST.teams[1]} ${F.s1}${BU?' · tonight\'s usage blended in':''}${nOut?` · ${nOut} player${nOut>1?'s':''} out`:''}`;
     renderMidOut();
   }catch(e){ console.error(e); st.textContent='Sim failed: '+e.message; }
   ST.midBusy=false; if($('#mGo')) $('#mGo').disabled=false;
+  if(ST.midAgain){ ST.midAgain=false; setTimeout(runMid,0); } // a pull landed mid-sim: sim again from the newer state
 }
 async function scoreContestsMid(pts,N,n,prog){
   const W=0.1, NB=4000, CW=20, NC=NB/CW; const tot$=new Float64Array(N);
@@ -3216,7 +3221,7 @@ async function scoreContestsMid(pts,N,n,prog){
         if(rank<=C.Pd){ C.ucash[q]++; anyC=1; C.ncash+=C.myN[q]; } if(a<0.5){ any1t=1; if(a===0&&t<=C.myN[q]){ C.u1[q]++; any1=1; } } } // first = nobody else's lineup at or above yours; ties with field duplicates count only in p1t
       C.p1+=any1; C.p1t+=any1t; C.pc+=anyC; C.bestR[i]=best;
       for(let u=0;u<nu;u++){ const b=bins[u]; hist[b]=0; coarse[(b/CW)|0]=0; } }
-    if(i%50===49){ prog((i+1)/N); await new Promise(r=>setTimeout(r,0)); } }
+    if(i%50===49){ prog((i+1)/N); await uiYield(); } }
   return {Cs,tot$};
 }
 function renderMidOut(){
@@ -3272,6 +3277,7 @@ function renderLiveTab(){
     <p class="small muted">ESPN's public game summary supplies the box score, team stats, play text and game situation; DK points are calculated from it. The claude.ai viewer blocks outside requests, so ESPN pulls work in the downloaded HTML. In either place you can use the exact DraftKings FPTS from your newest contest-standings file (download fresh standings during the game for current points) and type the game state below.</p></div>
     <div id="liveOut" style="margin-top:16px"></div><div class="card" id="midCard" style="margin-top:16px"></div>`;
   $('#liveGo').onclick=pullLive;
+  if(!ST.visHook){ ST.visHook=true; document.addEventListener('visibilitychange',()=>{ if(!document.hidden&&ST.liveTimer&&(!ST.live||!ST.live.at||Date.now()-ST.live.at>20000)) pullLive(); }); } // back on the tab: pull now instead of waiting out the timer
   $('#liveAuto').onchange=(e)=>{ clearInterval(ST.liveTimer); if(e.target.checked){ pullLive(); ST.liveTimer=setInterval(pullLive,60000); } };
   $('#liveDK').onclick=()=>{ const d=dkFromStandings(); if(!d){ $('#liveStatus').textContent='Load a contest-standings file on the Leverage tab first.'; return; } ST.live=d; $('#liveStatus').textContent=''; renderLive(); };
   renderLive(); if(!ST.live) renderMidCard();
@@ -3450,6 +3456,7 @@ function swApplyTabs() {
     if (c.classList.contains('final')) { const sc = $('#swScore'); if (sc) sc.innerHTML = c.innerHTML; show(c, false); return; }
     if (c.querySelector && c.querySelectorAll('h3').length > 1 && !c.matches('.card')) { show(c, true); Array.from(c.children).forEach((g) => show(g, swTabOf(g) === tab)); c.style.display = Array.from(c.children).some((g) => g.style.display !== 'none') ? '' : 'none'; return; }
     show(c, swTabOf(c) === tab); }); }
+  const ao = $('#swAsOf'); if (ao) { const M = ST.mid; ao.textContent = M && M.at ? `sim ${M.F && M.F.q ? (M.F.q === 5 ? 'OT' : 'Q' + M.F.q) + ' ' + M.F.clk + ', ' : ''}${M.at.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}${ST.midBusy ? ' · updating' : ''}` : ''; }
   const mc = $('#midCard'); if (mc) { mc.classList.toggle('swbare', tab !== 'game'); Array.from(mc.children).forEach((c) => {
     if (c.id !== 'midOut') { show(c, tab === 'game'); return; } show(c, true);
     Array.from(c.children).forEach((x) => show(x, swTabOf(x) === tab)); }); }
@@ -3458,7 +3465,7 @@ function sweatBoot() {
   document.body.classList.add('sweat'); document.title = 'Showdown Sweat';
   const pane = $('#pane-live'); pane.hidden = false;
   const box = document.createElement('div'); box.id = 'swBox'; box.className = 'card'; box.style.marginBottom = '16px';
-  box.innerHTML = `<div class="row" style="justify-content:space-between;align-items:baseline"><h3 style="font-size:22px">Showdown Sweat <span id="swGame" class="muted" style="font-size:16px"></span></h3><div class="row" style="gap:12px;align-items:center"><span id="swScore" class="num" style="font-size:18px"></span><button id="swTheme" class="small" title="Switch light / dark" aria-label="Switch light or dark mode"></button></div></div>
+  box.innerHTML = `<div class="row" style="justify-content:space-between;align-items:baseline"><h3 style="font-size:22px">Showdown Sweat <span id="swGame" class="muted" style="font-size:16px"></span></h3><div class="row" style="gap:12px;align-items:center"><span id="swScore" class="num" style="font-size:18px"></span><span id="swAsOf" class="small muted"></span><button id="swTheme" class="small" title="Switch light / dark" aria-label="Switch light or dark mode"></button></div></div>
     <nav class="swtabs" id="swTabs" role="tablist">${SW_TABS.map(([k, l]) => `<button role="tab" data-swt="${k}">${l}</button>`).join('')}</nav><p class="note" id="swWait" style="display:none;margin-top:10px"></p>
     <div id="swSetup"><div class="row" style="gap:16px;align-items:flex-start;flex-wrap:wrap;margin-top:8px">
       <label class="small" style="display:flex;flex-direction:column;gap:4px">DraftKings username<input id="swUser" type="text" value="${esc(store.get('dkUser', '') || '')}" placeholder="username" style="width:200px"></label>
