@@ -118,6 +118,7 @@ function swApplyTabs() {
     if (c.classList.contains('final')) { const sc = $('#swScore'); if (sc) sc.innerHTML = c.innerHTML; show(c, false); return; }
     if (c.querySelector && c.querySelectorAll('h3').length > 1 && !c.matches('.card')) { show(c, true); Array.from(c.children).forEach((g) => show(g, swTabOf(g) === tab)); c.style.display = Array.from(c.children).some((g) => g.style.display !== 'none') ? '' : 'none'; return; }
     show(c, swTabOf(c) === tab); }); }
+  const ao = $('#swAsOf'); if (ao) { const M = ST.mid; ao.textContent = M && M.at ? `sim ${M.F && M.F.q ? (M.F.q === 5 ? 'OT' : 'Q' + M.F.q) + ' ' + M.F.clk + ', ' : ''}${M.at.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}${ST.midBusy ? ' · updating' : ''}` : ''; }
   const mc = $('#midCard'); if (mc) { mc.classList.toggle('swbare', tab !== 'game'); Array.from(mc.children).forEach((c) => {
     if (c.id !== 'midOut') { show(c, tab === 'game'); return; } show(c, true);
     Array.from(c.children).forEach((x) => show(x, swTabOf(x) === tab)); }); }
@@ -126,7 +127,7 @@ function sweatBoot() {
   document.body.classList.add('sweat'); document.title = 'Showdown Sweat';
   const pane = $('#pane-live'); pane.hidden = false;
   const box = document.createElement('div'); box.id = 'swBox'; box.className = 'card'; box.style.marginBottom = '16px';
-  box.innerHTML = `<div class="row" style="justify-content:space-between;align-items:baseline"><h3 style="font-size:22px">Showdown Sweat <span id="swGame" class="muted" style="font-size:16px"></span></h3><div class="row" style="gap:12px;align-items:center"><span id="swScore" class="num" style="font-size:18px"></span><button id="swTheme" class="small" title="Switch light / dark" aria-label="Switch light or dark mode"></button></div></div>
+  box.innerHTML = `<div class="row" style="justify-content:space-between;align-items:baseline"><h3 style="font-size:22px">Showdown Sweat <span id="swGame" class="muted" style="font-size:16px"></span></h3><div class="row" style="gap:12px;align-items:center"><span id="swScore" class="num" style="font-size:18px"></span><span id="swAsOf" class="small muted"></span><button id="swTheme" class="small" title="Switch light / dark" aria-label="Switch light or dark mode"></button></div></div>
     <nav class="swtabs" id="swTabs" role="tablist">${SW_TABS.map(([k, l]) => `<button role="tab" data-swt="${k}">${l}</button>`).join('')}</nav><p class="note" id="swWait" style="display:none;margin-top:10px"></p>
     <div id="swSetup"><div class="row" style="gap:16px;align-items:flex-start;flex-wrap:wrap;margin-top:8px">
       <label class="small" style="display:flex;flex-direction:column;gap:4px">DraftKings username<input id="swUser" type="text" value="${esc(store.get('dkUser', '') || '')}" placeholder="username" style="width:200px"></label>
