@@ -137,9 +137,8 @@ function sweatBoot() {
     <p class="small" id="swStatus" style="margin-top:8px"></p><p class="small muted" id="swPre"></p><div id="swContests"></div></div>`;
   pane.parentNode.insertBefore(box, pane);
   // light / dark: remembered per browser, first visit follows the system setting
-  const sysDark = () => window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
   const setTheme = (t) => { document.documentElement.dataset.theme = t; const b = $('#swTheme'); if (b) b.textContent = t === 'dark' ? '☀ Light' : '☾ Dark'; };
-  let th = null; try { th = store.get('swTheme', null); } catch (e) {} setTheme(th || (sysDark() ? 'dark' : 'light'));
+  let th = null; try { th = store.get('swTheme', null); } catch (e) {} setTheme(th || 'dark'); // dark unless the visitor picked light
   $('#swTheme').onclick = () => { const t = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'; setTheme(t); try { store.set('swTheme', t); } catch (e) {} };
   renderLiveTab();
   $$('#swTabs button').forEach((b) => b.onclick = () => { if (b.disabled) return; SW.tab = b.dataset.swt; SW.picked = true; try { store.set('swTab', SW.tab); } catch (e) {} swApplyTabs(); window.scrollTo(0, 0); });
